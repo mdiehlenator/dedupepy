@@ -111,13 +111,13 @@ class DB:
         print(f"Dupe by size: {size}")
 
         #! log(self.config, "info", "Potential dupe.")
-        self.db_cursor.execute("select path from files where size=? and crc not in (0,-1)", [size])
-        m = self.db_cursor.fetchall()
+        m = self.db_cursor.execute("select path from files where size=?", [size])
 
         for path in m:
             #! We need to compare the mtime in the db v fs to see 
             #! if we need to recalculate crc
             f = path[0]
+            print(f"\tCalculating crc for {f}")
             crc = self.crc(f)
             self.store_crc_by_path(f, crc)
             print(f"{path} = {crc}")
@@ -213,6 +213,14 @@ def main():
                     if o['size'] in previous_size:
                         db.calculate_crc_by_size( o["size"] )
 
+                        #! We need to get rid of this as a dup.abs
+                        p = f"{root}/{f}"
+                        print(f"\tCalculating crc for {p}")
+                        crc = db.crc(p)
+                        db.store_crc_by_path(p, crc)
+
+                        print(f"{p} = {crc}")
+
                     previous_size[ o["size"] ] = 1
 
     print("Done scanning")
@@ -275,11 +283,12 @@ def ignore_dir(c, dir):
         if glob_match(skip_dirs, dir):
             print(f"Skipping dir glob: {dir}")
             return True
-    else:
-        for skip_dir in skip_dirs:
-            if glob_match(skip_dir, dir):
-                print(f"Skipping dir glob: {file}")
-                return True    
+    #! This is broken.
+    # else:
+    #     for skip_dir in skip_dirs:
+    #         if glob_match(skip_dir, dir):
+    #             print(f"Skipping dir glob: {dir}")
+    #             return True    
     return False
 
 def ignore_file(c, file):
